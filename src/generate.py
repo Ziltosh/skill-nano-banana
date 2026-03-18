@@ -30,7 +30,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         epilog='Example: generate "a cat on the moon" --style ghibli --model pro',
     )
     parser.add_argument("prompt", help="Text prompt for image generation")
-    parser.add_argument("--style", help="Style preset name to apply")
+    parser.add_argument("--style", action="append", default=[], help="Style preset name (repeatable)")
     parser.add_argument("--model", help="Model alias (see models.json)")
     parser.add_argument(
         "--include", action="append", default=[], help="Resource tag to include (repeatable)"
@@ -47,7 +47,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def generate_image(
     prompt: str,
     api_key: str,
-    style: str | None = None,
+    style: list[str] | None = None,
     model: str | None = None,
     text: str | None = None,
     ratio: str | None = None,
@@ -121,26 +121,29 @@ def generate_image(
     if resource_prompts:
         enriched_prompt = f"{enriched_prompt}, {', '.join(resource_prompts)}"
     if style:
-        style_text = get_style(style, path=styles_file)
-        if style_text is None:
-            available = list_styles(path=styles_file)
-            error_msg = (
-                f"Unknown style '{style}'. "
-                f"Available styles: {', '.join(available) or 'none'}"
-            )
-            log_generation(
-                prompt=prompt,
-                output_path="",
-                success=False,
-                style=style,
-                text=text,
-                ratio=ratio,
-                size=size,
-                error=error_msg,
-                history_file=history_file,
-            )
-            return {"success": False, "error": error_msg, "code": "UNKNOWN_STYLE"}
-        enriched_prompt = f"{enriched_prompt}, {style_text}"
+        style_texts = []
+        for s in style:
+            s_text = get_style(s, path=styles_file)
+            if s_text is None:
+                available = list_styles(path=styles_file)
+                error_msg = (
+                    f"Unknown style '{s}'. "
+                    f"Available styles: {', '.join(available) or 'none'}"
+                )
+                log_generation(
+                    prompt=prompt,
+                    output_path="",
+                    success=False,
+                    style=style,
+                    text=text,
+                    ratio=ratio,
+                    size=size,
+                    error=error_msg,
+                    history_file=history_file,
+                )
+                return {"success": False, "error": error_msg, "code": "UNKNOWN_STYLE"}
+            style_texts.append(s_text)
+        enriched_prompt = f"{enriched_prompt}, {', '.join(style_texts)}"
 
     # Build contents for the API call
     contents: list = []
@@ -264,7 +267,7 @@ def main():
     result = generate_image(
         prompt=args.prompt,
         api_key=api_key,
-        style=args.style,
+        style=args.style if args.style else None,
         model=args.model,
         text=args.text if args.text else None,
         ratio=args.ratio if args.ratio else None,

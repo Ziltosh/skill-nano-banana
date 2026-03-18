@@ -184,7 +184,7 @@ def test_include_plus_style_cumulates(mock_genai, tmp_path):
         prompt="portrait",
         api_key="key",
         include_tags=["face-kim"],
-        style="ghibli",
+        style=["ghibli"],
         output_dir=tmp_path / "out",
         resources_dir=res_dir,
         styles_file=styles_file,
