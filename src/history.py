@@ -8,6 +8,8 @@ def log_generation(
     output_path: str,
     success: bool,
     style: str | None = None,
+    model: str | None = None,
+    text: str | None = None,
     error: str | None = None,
     history_file: Path | None = None,
 ) -> None:
@@ -21,6 +23,8 @@ def log_generation(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "prompt": prompt,
         "style": style,
+        "model": model,
+        "text": text,
         "output": output_path,
         "success": success,
         "error": error,

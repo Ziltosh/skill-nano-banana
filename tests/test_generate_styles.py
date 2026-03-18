@@ -85,3 +85,38 @@ def test_no_style_no_enrichment(mock_genai, tmp_path):
 
     assert result["success"] is True
     assert result["prompt"] == "a castle"
+
+
+@patch("src.generate.genai")
+def test_text_combined_with_style(mock_genai, tmp_path):
+    styles_file = _create_styles(tmp_path)
+
+    mock_image = MagicMock()
+    mock_part = MagicMock()
+    mock_part.text = None
+    mock_part.inline_data = True
+    mock_part.as_image.return_value = mock_image
+
+    mock_response = MagicMock()
+    mock_response.parts = [mock_part]
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+    mock_genai.Client.return_value = mock_client
+
+    result = generate_image(
+        prompt="un château",
+        api_key="test-key",
+        text="Bienvenue",
+        style="ghibli",
+        output_dir=tmp_path,
+        styles_file=styles_file,
+        history_file=tmp_path / "history.jsonl",
+    )
+
+    assert result["success"] is True
+    # Text instruction should come before style
+    prompt = result["prompt"]
+    text_pos = prompt.index("Bienvenue")
+    style_pos = prompt.index("Studio Ghibli")
+    assert text_pos < style_pos

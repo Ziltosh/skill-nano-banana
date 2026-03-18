@@ -10,8 +10,9 @@ def test_valid_key(monkeypatch):
     assert get_api_key() == "test-key-123"
 
 
-def test_missing_key(monkeypatch):
+def test_missing_key(monkeypatch, tmp_path):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.chdir(tmp_path)  # no .env file here
     with pytest.raises(SystemExit, match="GEMINI_API_KEY is not set"):
         get_api_key()
 
