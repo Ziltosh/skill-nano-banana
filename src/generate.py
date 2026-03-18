@@ -13,7 +13,7 @@ from src.config import get_api_key
 from src.history import log_generation
 from src.models import get_default_model, get_model_id, list_models
 from src.resources import list_tags, load_tag
-from src.slugify import slugify, unique_path
+from src.slugify import extract_keywords, slugify, strip_image_extension, unique_path
 from src.styles import get_style, list_styles
 
 SUPPORTED_RATIOS = ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4"]
@@ -38,6 +38,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--text", help="Text to display on the generated image (case-preserving)")
     parser.add_argument("--ratio", help="Aspect ratio (e.g., 16:9, 1:1, 9:16)")
     parser.add_argument("--size", help="Image resolution (1k, 2k, 4k)")
+    parser.add_argument("--name", help="Force output filename (without extension)")
     parser.add_argument(
         "--images", nargs="*", default=[], help="Reference image file paths"
     )
@@ -54,6 +55,7 @@ def generate_image(
     size: str | None = None,
     include_tags: list[str] | None = None,
     image_paths: list[str] | None = None,
+    name: str | None = None,
     output_dir: Path | None = None,
     styles_file: Path | None = None,
     models_file: Path | None = None,
@@ -99,6 +101,13 @@ def generate_image(
             f"Available sizes: {', '.join(SUPPORTED_SIZES)}"
         )
         return {"success": False, "error": error_msg, "code": "INVALID_SIZE"}
+
+    # Pre-validate --name if provided
+    if name is not None:
+        stripped = strip_image_extension(name) if name else ""
+        name_slug = slugify(stripped) if stripped else ""
+        if not name_slug or name_slug == "image":
+            return {"success": False, "error": f"Invalid name '{name}': produces empty slug after sanitization.", "code": "INVALID_ARGS"}
 
     # Load resources from --include tags
     resource_images: list[Path] = []
@@ -225,8 +234,14 @@ def generate_image(
         )
         return {"success": False, "error": error_msg, "code": "CONTENT_BLOCKED"}
 
-    # Save image
-    slug = slugify(prompt)
+    # Resolve output name (3-level priority)
+    if name is not None:
+        slug = slugify(strip_image_extension(name))
+    elif image_paths and len(image_paths) == 1:
+        slug = slugify(Path(image_paths[0]).stem)
+    else:
+        keywords = extract_keywords(prompt)
+        slug = slugify(keywords) if keywords else "image"
     output_path = unique_path(output_dir, slug)
     generated_image.save(str(output_path))
 
@@ -274,6 +289,7 @@ def main():
         size=args.size if args.size else None,
         include_tags=args.include if args.include else None,
         image_paths=args.images if args.images else None,
+        name=args.name if args.name else None,
     )
 
     print(json.dumps(result, ensure_ascii=False))
