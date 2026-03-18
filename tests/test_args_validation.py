@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.generate import parse_args
+from src.generate import generate_image, parse_args
 
 
 def test_valid_args_with_all_flags():
@@ -51,3 +51,29 @@ def test_missing_model_value_raises():
 def test_missing_prompt_raises():
     with pytest.raises(SystemExit):
         parse_args([])
+
+
+def test_name_empty_returns_invalid_args(tmp_path):
+    """T014: --name "" returns error with code INVALID_ARGS."""
+    result = generate_image(
+        prompt="un chat",
+        api_key="test-key",
+        name="",
+        output_dir=tmp_path,
+        history_file=tmp_path / "history.jsonl",
+    )
+    assert result["success"] is False
+    assert result["code"] == "INVALID_ARGS"
+
+
+def test_name_only_special_chars_returns_invalid_args(tmp_path):
+    """T015: --name "@#$" returns error with code INVALID_ARGS."""
+    result = generate_image(
+        prompt="un chat",
+        api_key="test-key",
+        name="@#$",
+        output_dir=tmp_path,
+        history_file=tmp_path / "history.jsonl",
+    )
+    assert result["success"] is False
+    assert result["code"] == "INVALID_ARGS"

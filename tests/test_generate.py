@@ -57,6 +57,260 @@ class TestParseArgs:
         assert args.size is None
 
 
+class TestParseArgsName:
+    def test_with_name(self):
+        args = parse_args(["un chat", "--name", "resultat"])
+        assert args.name == "resultat"
+
+    def test_without_name(self):
+        args = parse_args(["un chat"])
+        assert args.name is None
+
+
+class TestNameForcing:
+    @patch("src.generate.genai")
+    def test_name_forces_output_filename(self, mock_genai, tmp_path):
+        """T011: --name forces output filename."""
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un chat",
+            api_key="test-key",
+            name="resultat-final",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        assert "resultat-final" in Path(result["path"]).stem
+
+    @patch("src.generate.genai")
+    def test_name_priority_over_images(self, mock_genai, tmp_path):
+        """T012: --name takes priority over single --images."""
+        from PIL import Image as PILImage
+
+        ref_img = tmp_path / "logo.png"
+        PILImage.new("RGB", (10, 10)).save(ref_img)
+
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="modifie",
+            api_key="test-key",
+            name="nouveau-logo",
+            image_paths=[str(ref_img)],
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        assert "nouveau-logo" in Path(result["path"]).stem
+
+    @patch("src.generate.genai")
+    def test_name_with_image_extension_stripped(self, mock_genai, tmp_path):
+        """T013: --name with image extension stripped."""
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un chat",
+            api_key="test-key",
+            name="logo.png",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        stem = Path(result["path"]).stem
+        assert stem == "logo"
+
+
+class TestKeywordNaming:
+    @patch("src.generate.genai")
+    def test_prompt_without_images_uses_keywords(self, mock_genai, tmp_path):
+        """T019: prompt without images: output named with keywords."""
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un chat sur un skateboard",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        stem = Path(result["path"]).stem
+        assert "chat" in stem
+        assert "skateboard" in stem
+        # stop words should not be in the name
+        assert stem != "un-chat-sur-un-skateboard"
+
+    @patch("src.generate.genai")
+    def test_long_prompt_max_4_keywords(self, mock_genai, tmp_path):
+        """T020: long prompt: output name has max 4 keywords."""
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un magnifique paysage de montagne enneigée au coucher du soleil avec des reflets dorés sur un lac cristallin entouré de sapins",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        stem = Path(result["path"]).stem
+        # Max 4 keywords, so max 4 segments separated by hyphens
+        parts = stem.split("-")
+        assert len(parts) <= 4
+
+    @patch("src.generate.genai")
+    def test_multiple_images_uses_prompt_keywords(self, mock_genai, tmp_path):
+        """T021: multiple reference images: output named with prompt keywords."""
+        from PIL import Image as PILImage
+
+        img1 = tmp_path / "chat.png"
+        img2 = tmp_path / "chien.png"
+        PILImage.new("RGB", (10, 10)).save(img1)
+        PILImage.new("RGB", (10, 10)).save(img2)
+
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="fusionne ces deux animaux",
+            api_key="test-key",
+            image_paths=[str(img1), str(img2)],
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        stem = Path(result["path"]).stem
+        # Should use prompt keywords, not image names
+        assert "fusionne" in stem or "animaux" in stem
+
+    @patch("src.generate.genai")
+    def test_only_stop_words_fallback_image(self, mock_genai, tmp_path):
+        """T022: prompt with only stop words: output named image.png (fallback)."""
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un le de la",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        assert Path(result["path"]).stem == "image"
+
+
+class TestRetroCompatibility:
+    @patch("src.generate.genai")
+    def test_no_images_no_name_uses_keywords(self, mock_genai, tmp_path):
+        """T023: no images, no name: output named with prompt keywords."""
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un paysage",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        stem = Path(result["path"]).stem
+        assert "paysage" in stem
+        # "un" is a stop word, should not be in name
+        assert not stem.startswith("un-")
+
+
 class TestGenerateImage:
     @patch("src.generate.genai")
     def test_successful_generation(self, mock_genai, tmp_path):
@@ -84,7 +338,7 @@ class TestGenerateImage:
         )
 
         assert result["success"] is True
-        assert "un-chat" in result["path"]
+        assert "chat" in result["path"]
         mock_image.save.assert_called_once()
 
     @patch("src.generate.genai")
@@ -192,7 +446,7 @@ class TestGenerateImage:
             history_file=tmp_path / "history.jsonl",
         )
 
-        assert "un-paysage-montagneux" in result["path"]
+        assert "paysage-montagneux" in result["path"]
 
     @patch("src.generate.genai")
     def test_text_prompt_enrichment(self, mock_genai, tmp_path):
