@@ -60,6 +60,31 @@ def test_creates_parent_directory(tmp_path):
     assert history_file.exists()
 
 
+def test_append_with_text(tmp_path):
+    history_file = tmp_path / "history.jsonl"
+    log_generation(
+        prompt="a logo",
+        output_path="out/a-logo.png",
+        success=True,
+        text="ACME CORP",
+        history_file=history_file,
+    )
+    entry = json.loads(history_file.read_text().strip())
+    assert entry["text"] == "ACME CORP"
+
+
+def test_append_without_text(tmp_path):
+    history_file = tmp_path / "history.jsonl"
+    log_generation(
+        prompt="a landscape",
+        output_path="out/a-landscape.png",
+        success=True,
+        history_file=history_file,
+    )
+    entry = json.loads(history_file.read_text().strip())
+    assert entry["text"] is None
+
+
 def test_multiple_entries(tmp_path):
     history_file = tmp_path / "history.jsonl"
     for i in range(3):

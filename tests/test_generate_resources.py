@@ -194,3 +194,30 @@ def test_include_plus_style_cumulates(mock_genai, tmp_path):
     assert result["success"] is True
     assert "person must appear" in result["prompt"]
     assert "Ghibli style" in result["prompt"]
+
+
+@patch("src.generate.genai")
+def test_text_combined_with_include(mock_genai, tmp_path):
+    res_dir = _create_tag(tmp_path, "face-kim", meta_prompt="person must appear")
+    _mock_success(mock_genai)
+
+    result = generate_image(
+        prompt="portrait",
+        api_key="key",
+        text="HELLO",
+        include_tags=["face-kim"],
+        output_dir=tmp_path / "out",
+        resources_dir=res_dir,
+        history_file=tmp_path / "history.jsonl",
+    )
+
+    assert result["success"] is True
+    prompt = result["prompt"]
+    # Text instruction should be present
+    assert "HELLO" in prompt
+    # Resource prompt should be present
+    assert "person must appear" in prompt
+    # Text instruction should come before resource prompt
+    text_pos = prompt.index("HELLO")
+    resource_pos = prompt.index("person must appear")
+    assert text_pos < resource_pos

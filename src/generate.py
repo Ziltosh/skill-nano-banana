@@ -28,6 +28,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--include", action="append", default=[], help="Resource tag to include (repeatable)"
     )
+    parser.add_argument("--text", help="Text to display on the generated image (case-preserving)")
     parser.add_argument(
         "--images", nargs="*", default=[], help="Reference image file paths"
     )
@@ -39,6 +40,7 @@ def generate_image(
     api_key: str,
     style: str | None = None,
     model: str | None = None,
+    text: str | None = None,
     include_tags: list[str] | None = None,
     image_paths: list[str] | None = None,
     output_dir: Path | None = None,
@@ -83,8 +85,10 @@ def generate_image(
                 code = "UNKNOWN_TAG" if "not found" in str(e) else "EMPTY_RESOURCES"
                 return {"success": False, "error": str(e), "code": code}
 
-    # Build the enriched prompt: user prompt + include prompts + style
+    # Build the enriched prompt: user prompt + text instruction + include prompts + style
     enriched_prompt = prompt
+    if text:
+        enriched_prompt = f'{enriched_prompt}, Write the exact text "{text}" on the image, preserving the exact capitalization'
     if resource_prompts:
         enriched_prompt = f"{enriched_prompt}, {', '.join(resource_prompts)}"
     if style:
@@ -100,6 +104,7 @@ def generate_image(
                 output_path="",
                 success=False,
                 style=style,
+                text=text,
                 error=error_msg,
                 history_file=history_file,
             )
@@ -131,6 +136,7 @@ def generate_image(
                     output_path="",
                     success=False,
                     style=style,
+                    text=text,
                     error=error_msg,
                     history_file=history_file,
                 )
@@ -155,6 +161,7 @@ def generate_image(
             output_path="",
             success=False,
             style=style,
+            text=text,
             error=error_msg,
             history_file=history_file,
         )
@@ -174,6 +181,7 @@ def generate_image(
             output_path="",
             success=False,
             style=style,
+            text=text,
             error=error_msg,
             history_file=history_file,
         )
@@ -191,6 +199,7 @@ def generate_image(
         success=True,
         style=style,
         model=model_id,
+        text=text,
         history_file=history_file,
     )
 
@@ -200,6 +209,7 @@ def generate_image(
         "prompt": enriched_prompt,
         "style": style,
         "model": model_id,
+        "text": text,
     }
 
 
@@ -217,6 +227,7 @@ def main():
         api_key=api_key,
         style=args.style,
         model=args.model,
+        text=args.text if args.text else None,
         include_tags=args.include if args.include else None,
         image_paths=args.images if args.images else None,
     )

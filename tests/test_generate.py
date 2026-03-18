@@ -27,6 +27,15 @@ class TestParseArgs:
         with pytest.raises(SystemExit):
             parse_args([])
 
+    def test_with_text(self):
+        args = parse_args(["un logo", "--text", "Hello World"])
+        assert args.prompt == "un logo"
+        assert args.text == "Hello World"
+
+    def test_without_text(self):
+        args = parse_args(["un paysage"])
+        assert args.text is None
+
 
 class TestGenerateImage:
     @patch("src.generate.genai")
@@ -164,3 +173,165 @@ class TestGenerateImage:
         )
 
         assert "un-paysage-montagneux" in result["path"]
+
+    @patch("src.generate.genai")
+    def test_text_prompt_enrichment(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        generate_image(
+            prompt="un logo",
+            api_key="test-key",
+            text="ACME CORP",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs.get("contents") or call_args[1].get("contents")
+        prompt_text = contents[-1]
+        assert "ACME CORP" in prompt_text
+        assert "exact text" in prompt_text.lower() or "exact capitalization" in prompt_text.lower()
+
+    @patch("src.generate.genai")
+    def test_no_text_instruction_without_flag(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        generate_image(
+            prompt="un paysage",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs.get("contents") or call_args[1].get("contents")
+        prompt_text = contents[-1]
+        assert prompt_text == "un paysage"
+
+    @patch("src.generate.genai")
+    def test_empty_text_ignored(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        generate_image(
+            prompt="un paysage",
+            api_key="test-key",
+            text="",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        call_args = mock_client.models.generate_content.call_args
+        contents = call_args.kwargs.get("contents") or call_args[1].get("contents")
+        prompt_text = contents[-1]
+        assert prompt_text == "un paysage"
+
+    @patch("src.generate.genai")
+    def test_text_in_result_dict(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un logo",
+            api_key="test-key",
+            text="HELLO",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        assert result["text"] == "HELLO"
+
+    @patch("src.generate.genai")
+    def test_no_text_in_result_without_flag(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un paysage",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        assert result["success"] is True
+        assert result.get("text") is None
+
+    @patch("src.generate.genai")
+    def test_text_logged_in_history(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        history_file = tmp_path / "history.jsonl"
+        generate_image(
+            prompt="test",
+            api_key="test-key",
+            text="TEST",
+            output_dir=tmp_path,
+            history_file=history_file,
+        )
+
+        entry = json.loads(history_file.read_text().strip())
+        assert entry["text"] == "TEST"
