@@ -36,6 +36,22 @@ class TestParseArgs:
         args = parse_args(["un paysage"])
         assert args.text is None
 
+    def test_with_ratio(self):
+        args = parse_args(["un logo", "--ratio", "1:1"])
+        assert args.ratio == "1:1"
+
+    def test_without_ratio(self):
+        args = parse_args(["un paysage"])
+        assert args.ratio is None
+
+    def test_with_size(self):
+        args = parse_args(["un paysage", "--size", "2k"])
+        assert args.size == "2k"
+
+    def test_without_size(self):
+        args = parse_args(["un paysage"])
+        assert args.size is None
+
 
 class TestGenerateImage:
     @patch("src.generate.genai")
@@ -335,3 +351,323 @@ class TestGenerateImage:
 
         entry = json.loads(history_file.read_text().strip())
         assert entry["text"] == "TEST"
+
+    @patch("src.generate.genai")
+    def test_ratio_passed_to_image_config(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        generate_image(
+            prompt="un logo",
+            api_key="test-key",
+            ratio="1:1",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        call_args = mock_client.models.generate_content.call_args
+        config = call_args.kwargs["config"]
+        assert config.image_config.aspect_ratio == "1:1"
+
+    @patch("src.generate.genai")
+    def test_default_ratio_16_9(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        generate_image(
+            prompt="un paysage",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        call_args = mock_client.models.generate_content.call_args
+        config = call_args.kwargs["config"]
+        assert config.image_config.aspect_ratio == "16:9"
+
+    def test_invalid_ratio_error(self, tmp_path):
+        result = generate_image(
+            prompt="test",
+            api_key="test-key",
+            ratio="7:3",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["success"] is False
+        assert result["code"] == "INVALID_RATIO"
+        assert "7:3" in result["error"]
+        assert "16:9" in result["error"]
+
+    @patch("src.generate.genai")
+    def test_ratio_in_result_dict(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="test",
+            api_key="test-key",
+            ratio="1:1",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["ratio"] == "1:1"
+
+    @patch("src.generate.genai")
+    def test_default_ratio_in_result(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="test",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["ratio"] == "16:9"
+
+    @patch("src.generate.genai")
+    def test_ratio_logged_in_history(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        history_file = tmp_path / "history.jsonl"
+        generate_image(
+            prompt="test",
+            api_key="test-key",
+            ratio="9:16",
+            output_dir=tmp_path,
+            history_file=history_file,
+        )
+        entry = json.loads(history_file.read_text().strip())
+        assert entry["ratio"] == "9:16"
+
+    @patch("src.generate.genai")
+    def test_size_passed_to_image_config(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        generate_image(
+            prompt="un paysage",
+            api_key="test-key",
+            size="4k",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        call_args = mock_client.models.generate_content.call_args
+        config = call_args.kwargs["config"]
+        assert config.image_config.image_size == "4K"
+
+    @patch("src.generate.genai")
+    def test_default_size_1k(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        generate_image(
+            prompt="test",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+
+        call_args = mock_client.models.generate_content.call_args
+        config = call_args.kwargs["config"]
+        assert config.image_config.image_size == "1K"
+
+    def test_invalid_size_error(self, tmp_path):
+        result = generate_image(
+            prompt="test",
+            api_key="test-key",
+            size="8k",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["success"] is False
+        assert result["code"] == "INVALID_SIZE"
+        assert "8k" in result["error"]
+
+    @patch("src.generate.genai")
+    def test_size_in_result_dict(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="test",
+            api_key="test-key",
+            size="2k",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["size"] == "2k"
+
+    @patch("src.generate.genai")
+    def test_size_logged_in_history(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        history_file = tmp_path / "history.jsonl"
+        generate_image(
+            prompt="test",
+            api_key="test-key",
+            size="2k",
+            output_dir=tmp_path,
+            history_file=history_file,
+        )
+        entry = json.loads(history_file.read_text().strip())
+        assert entry["size"] == "2k"
+
+    @patch("src.generate.genai")
+    def test_ratio_and_size_combined_with_style(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        styles_file = tmp_path / "styles.json"
+        styles_file.write_text('{"ghibli": "Ghibli style"}')
+
+        result = generate_image(
+            prompt="un poster",
+            api_key="test-key",
+            ratio="9:16",
+            size="2k",
+            style="ghibli",
+            output_dir=tmp_path,
+            styles_file=styles_file,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["success"] is True
+        assert result["ratio"] == "9:16"
+        assert result["size"] == "2k"
+        assert "Ghibli" in result["prompt"]
+
+        config = mock_client.models.generate_content.call_args.kwargs["config"]
+        assert config.image_config.aspect_ratio == "9:16"
+        assert config.image_config.image_size == "2K"
+
+    @patch("src.generate.genai")
+    def test_ratio_size_and_text_combined(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="un logo",
+            api_key="test-key",
+            ratio="1:1",
+            size="4k",
+            text="BRAND",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["success"] is True
+        assert result["ratio"] == "1:1"
+        assert result["size"] == "4k"
+        assert "BRAND" in result["prompt"]

@@ -85,6 +85,34 @@ def test_append_without_text(tmp_path):
     assert entry["text"] is None
 
 
+def test_append_with_ratio_and_size(tmp_path):
+    history_file = tmp_path / "history.jsonl"
+    log_generation(
+        prompt="a landscape",
+        output_path="out/a-landscape.png",
+        success=True,
+        ratio="16:9",
+        size="2k",
+        history_file=history_file,
+    )
+    entry = json.loads(history_file.read_text().strip())
+    assert entry["ratio"] == "16:9"
+    assert entry["size"] == "2k"
+
+
+def test_append_without_ratio_and_size(tmp_path):
+    history_file = tmp_path / "history.jsonl"
+    log_generation(
+        prompt="test",
+        output_path="out/test.png",
+        success=True,
+        history_file=history_file,
+    )
+    entry = json.loads(history_file.read_text().strip())
+    assert entry["ratio"] is None
+    assert entry["size"] is None
+
+
 def test_multiple_entries(tmp_path):
     history_file = tmp_path / "history.jsonl"
     for i in range(3):

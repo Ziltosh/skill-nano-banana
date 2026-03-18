@@ -16,6 +16,13 @@ from src.resources import list_tags, load_tag
 from src.slugify import slugify, unique_path
 from src.styles import get_style, list_styles
 
+SUPPORTED_RATIOS = ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4"]
+DEFAULT_RATIO = "16:9"
+
+SUPPORTED_SIZES = ["1k", "2k", "4k"]
+DEFAULT_SIZE = "1k"
+SIZE_MAP = {"1k": "1K", "2k": "2K", "4k": "4K"}
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -29,6 +36,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--include", action="append", default=[], help="Resource tag to include (repeatable)"
     )
     parser.add_argument("--text", help="Text to display on the generated image (case-preserving)")
+    parser.add_argument("--ratio", help="Aspect ratio (e.g., 16:9, 1:1, 9:16)")
+    parser.add_argument("--size", help="Image resolution (1k, 2k, 4k)")
     parser.add_argument(
         "--images", nargs="*", default=[], help="Reference image file paths"
     )
@@ -41,6 +50,8 @@ def generate_image(
     style: str | None = None,
     model: str | None = None,
     text: str | None = None,
+    ratio: str | None = None,
+    size: str | None = None,
     include_tags: list[str] | None = None,
     image_paths: list[str] | None = None,
     output_dir: Path | None = None,
@@ -70,6 +81,24 @@ def generate_image(
             return {"success": False, "error": error_msg, "code": "UNKNOWN_MODEL"}
     else:
         _, model_id = get_default_model(path=models_file)
+
+    # Resolve ratio and size with defaults
+    ratio = ratio or DEFAULT_RATIO
+    size = size or DEFAULT_SIZE
+
+    if ratio not in SUPPORTED_RATIOS:
+        error_msg = (
+            f"Unknown ratio '{ratio}'. "
+            f"Available ratios: {', '.join(SUPPORTED_RATIOS)}"
+        )
+        return {"success": False, "error": error_msg, "code": "INVALID_RATIO"}
+
+    if size not in SUPPORTED_SIZES:
+        error_msg = (
+            f"Unknown size '{size}'. "
+            f"Available sizes: {', '.join(SUPPORTED_SIZES)}"
+        )
+        return {"success": False, "error": error_msg, "code": "INVALID_SIZE"}
 
     # Load resources from --include tags
     resource_images: list[Path] = []
@@ -105,6 +134,8 @@ def generate_image(
                 success=False,
                 style=style,
                 text=text,
+                ratio=ratio,
+                size=size,
                 error=error_msg,
                 history_file=history_file,
             )
@@ -151,7 +182,11 @@ def generate_image(
             model=model_id,
             contents=contents,
             config=types.GenerateContentConfig(
-                response_modalities=["Text", "Image"]
+                response_modalities=["Text", "Image"],
+                image_config=types.ImageConfig(
+                    aspect_ratio=ratio,
+                    image_size=SIZE_MAP[size],
+                ),
             ),
         )
     except Exception as e:
@@ -200,6 +235,8 @@ def generate_image(
         style=style,
         model=model_id,
         text=text,
+        ratio=ratio,
+        size=size,
         history_file=history_file,
     )
 
@@ -210,6 +247,8 @@ def generate_image(
         "style": style,
         "model": model_id,
         "text": text,
+        "ratio": ratio,
+        "size": size,
     }
 
 
@@ -228,6 +267,8 @@ def main():
         style=args.style,
         model=args.model,
         text=args.text if args.text else None,
+        ratio=args.ratio if args.ratio else None,
+        size=args.size if args.size else None,
         include_tags=args.include if args.include else None,
         image_paths=args.images if args.images else None,
     )
@@ -237,7 +278,7 @@ def main():
         code = result.get("code", "")
         if code == "INVALID_ARGS":
             sys.exit(3)
-        elif code in ("UNKNOWN_MODEL", "UNKNOWN_TAG", "EMPTY_RESOURCES"):
+        elif code in ("UNKNOWN_MODEL", "UNKNOWN_TAG", "EMPTY_RESOURCES", "INVALID_RATIO", "INVALID_SIZE"):
             sys.exit(4)
         else:
             sys.exit(2)
