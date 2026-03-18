@@ -11,13 +11,17 @@ class TestParseArgs:
     def test_prompt_only(self):
         args = parse_args(["un chat"])
         assert args.prompt == "un chat"
-        assert args.style is None
+        assert args.style == []
         assert args.images == []
 
     def test_with_style(self):
         args = parse_args(["un château", "--style", "ghibli"])
         assert args.prompt == "un château"
-        assert args.style == "ghibli"
+        assert args.style == ["ghibli"]
+
+    def test_with_multiple_styles(self):
+        args = parse_args(["un chat", "--style", "ghibli", "--style", "pixel-art"])
+        assert args.style == ["ghibli", "pixel-art"]
 
     def test_with_images(self):
         args = parse_args(["transform", "--images", "a.png", "b.png"])
@@ -629,7 +633,7 @@ class TestGenerateImage:
             api_key="test-key",
             ratio="9:16",
             size="2k",
-            style="ghibli",
+            style=["ghibli"],
             output_dir=tmp_path,
             styles_file=styles_file,
             history_file=tmp_path / "history.jsonl",
@@ -671,3 +675,123 @@ class TestGenerateImage:
         assert result["ratio"] == "1:1"
         assert result["size"] == "4k"
         assert "BRAND" in result["prompt"]
+
+    @patch("src.generate.genai")
+    def test_multi_style_in_result_dict(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        styles_file = tmp_path / "styles.json"
+        styles_file.write_text('{"ghibli": "Ghibli style", "pixel-art": "pixel art style"}')
+
+        result = generate_image(
+            prompt="test",
+            api_key="test-key",
+            style=["ghibli", "pixel-art"],
+            output_dir=tmp_path,
+            styles_file=styles_file,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["success"] is True
+        assert result["style"] == ["ghibli", "pixel-art"]
+
+    @patch("src.generate.genai")
+    def test_no_style_result_is_none(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        result = generate_image(
+            prompt="test",
+            api_key="test-key",
+            output_dir=tmp_path,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["style"] is None
+
+    @patch("src.generate.genai")
+    def test_multi_style_logged_in_history(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        styles_file = tmp_path / "styles.json"
+        styles_file.write_text('{"ghibli": "Ghibli style", "pixel-art": "pixel art style"}')
+
+        history_file = tmp_path / "history.jsonl"
+        generate_image(
+            prompt="test",
+            api_key="test-key",
+            style=["ghibli", "pixel-art"],
+            output_dir=tmp_path,
+            styles_file=styles_file,
+            history_file=history_file,
+        )
+        entry = json.loads(history_file.read_text().strip())
+        assert entry["style"] == ["ghibli", "pixel-art"]
+
+    @patch("src.generate.genai")
+    def test_multi_style_with_text_ratio_size(self, mock_genai, tmp_path):
+        mock_image = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = None
+        mock_part.inline_data = True
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = MagicMock()
+        mock_response.parts = [mock_part]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
+
+        styles_file = tmp_path / "styles.json"
+        styles_file.write_text('{"ghibli": "Ghibli style", "pixel-art": "pixel art style"}')
+
+        result = generate_image(
+            prompt="un poster",
+            api_key="test-key",
+            style=["ghibli", "pixel-art"],
+            text="CONCERT",
+            ratio="9:16",
+            size="2k",
+            output_dir=tmp_path,
+            styles_file=styles_file,
+            history_file=tmp_path / "history.jsonl",
+        )
+        assert result["success"] is True
+        assert result["style"] == ["ghibli", "pixel-art"]
+        assert result["text"] == "CONCERT"
+        assert result["ratio"] == "9:16"
+        assert result["size"] == "2k"
+        assert "CONCERT" in result["prompt"]
+        assert "Ghibli" in result["prompt"]
+        assert "pixel art" in result["prompt"]

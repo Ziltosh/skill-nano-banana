@@ -8,7 +8,7 @@ from src.generate import parse_args
 def test_valid_args_with_all_flags():
     args = parse_args(["a castle", "--style", "ghibli", "--model", "pro", "--include", "face-kim"])
     assert args.prompt == "a castle"
-    assert args.style == "ghibli"
+    assert args.style == ["ghibli"]
     assert args.model == "pro"
     assert args.include == ["face-kim"]
 
@@ -16,7 +16,7 @@ def test_valid_args_with_all_flags():
 def test_valid_args_prompt_only():
     args = parse_args(["a cat"])
     assert args.prompt == "a cat"
-    assert args.style is None
+    assert args.style == []
     assert args.model is None
     assert args.include == []
 
@@ -29,7 +29,7 @@ def test_multiple_include():
 def test_flags_in_any_order():
     args = parse_args(["test", "--model", "pro", "--style", "ghibli", "--include", "tag1"])
     assert args.model == "pro"
-    assert args.style == "ghibli"
+    assert args.style == ["ghibli"]
     assert args.include == ["tag1"]
 
 

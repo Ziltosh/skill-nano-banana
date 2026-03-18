@@ -7,7 +7,7 @@ def log_generation(
     prompt: str,
     output_path: str,
     success: bool,
-    style: str | None = None,
+    style: list[str] | None = None,
     model: str | None = None,
     text: str | None = None,
     ratio: str | None = None,

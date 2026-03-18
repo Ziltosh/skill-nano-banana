@@ -28,11 +28,11 @@ def test_append_with_style(tmp_path):
         prompt="a castle",
         output_path="out/a-castle.png",
         success=True,
-        style="ghibli",
+        style=["ghibli"],
         history_file=history_file,
     )
     entry = json.loads(history_file.read_text().strip())
-    assert entry["style"] == "ghibli"
+    assert entry["style"] == ["ghibli"]
 
 
 def test_append_failure(tmp_path):

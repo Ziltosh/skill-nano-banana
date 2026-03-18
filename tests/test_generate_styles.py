@@ -9,7 +9,7 @@ from src.generate import generate_image
 
 def _create_styles(tmp_path):
     p = tmp_path / "styles.json"
-    p.write_text(json.dumps({"ghibli": "in Studio Ghibli style"}))
+    p.write_text(json.dumps({"ghibli": "in Studio Ghibli style", "pixel-art": "as pixel art"}))
     return p
 
 
@@ -33,7 +33,7 @@ def test_prompt_enriched_with_style(mock_genai, tmp_path):
     result = generate_image(
         prompt="a castle",
         api_key="test-key",
-        style="ghibli",
+        style=["ghibli"],
         output_dir=tmp_path,
         styles_file=styles_file,
         history_file=tmp_path / "history.jsonl",
@@ -50,7 +50,7 @@ def test_unknown_style_error(mock_genai, tmp_path):
     result = generate_image(
         prompt="test",
         api_key="test-key",
-        style="nonexistent",
+        style=["nonexistent"],
         output_dir=tmp_path,
         styles_file=styles_file,
         history_file=tmp_path / "history.jsonl",
@@ -108,7 +108,7 @@ def test_text_combined_with_style(mock_genai, tmp_path):
         prompt="un château",
         api_key="test-key",
         text="Bienvenue",
-        style="ghibli",
+        style=["ghibli"],
         output_dir=tmp_path,
         styles_file=styles_file,
         history_file=tmp_path / "history.jsonl",
@@ -120,3 +120,52 @@ def test_text_combined_with_style(mock_genai, tmp_path):
     text_pos = prompt.index("Bienvenue")
     style_pos = prompt.index("Studio Ghibli")
     assert text_pos < style_pos
+
+
+@patch("src.generate.genai")
+def test_multi_style_prompt_enrichment(mock_genai, tmp_path):
+    styles_file = _create_styles(tmp_path)
+
+    mock_image = MagicMock()
+    mock_part = MagicMock()
+    mock_part.text = None
+    mock_part.inline_data = True
+    mock_part.as_image.return_value = mock_image
+
+    mock_response = MagicMock()
+    mock_response.parts = [mock_part]
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+    mock_genai.Client.return_value = mock_client
+
+    result = generate_image(
+        prompt="a castle",
+        api_key="test-key",
+        style=["ghibli", "pixel-art"],
+        output_dir=tmp_path,
+        styles_file=styles_file,
+        history_file=tmp_path / "history.jsonl",
+    )
+
+    assert result["success"] is True
+    assert "Studio Ghibli" in result["prompt"]
+    assert "pixel art" in result["prompt"]
+
+
+@patch("src.generate.genai")
+def test_invalid_style_in_multi_list(mock_genai, tmp_path):
+    styles_file = _create_styles(tmp_path)
+
+    result = generate_image(
+        prompt="test",
+        api_key="test-key",
+        style=["ghibli", "inexistant"],
+        output_dir=tmp_path,
+        styles_file=styles_file,
+        history_file=tmp_path / "history.jsonl",
+    )
+
+    assert result["success"] is False
+    assert result["code"] == "UNKNOWN_STYLE"
+    assert "inexistant" in result["error"]
