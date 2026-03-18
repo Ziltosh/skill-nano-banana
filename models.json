@@ -1,0 +1,6 @@
+{
+  "flash": "gemini-2.5-flash-image",
+  "pro": "gemini-3-pro-image-preview",
+  "banana2": "gemini-3.1-flash-image-preview",
+  "_default": "flash"
+}
