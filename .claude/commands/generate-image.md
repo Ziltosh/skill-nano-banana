@@ -10,18 +10,15 @@ Generate an image from a text prompt using the Gemini API.
    - Save each image to a temporary file in `/tmp/nano-banana/` (create the directory if needed)
    - Note the file paths for the `--images` flag
 
-3. **Extract style flag**: If the user mentioned a style (e.g., `--style ghibli`), extract it from the arguments.
+3. **Extract flags** from the arguments:
+   - `--style <name>` — style preset to apply
+   - `--model <alias>` — model to use (see models.json)
+   - `--include <tag>` — resource tag to include (repeatable)
 
 4. **Run the generation script**:
 
-   Without reference images:
    ```bash
-   cd $PROJECT_DIR && uv run python -m src.generate "$PROMPT" [--style STYLE_NAME]
-   ```
-
-   With reference images:
-   ```bash
-   cd $PROJECT_DIR && uv run python -m src.generate "$PROMPT" [--style STYLE_NAME] --images /tmp/nano-banana/img1.png /tmp/nano-banana/img2.png
+   cd $PROJECT_DIR && uv run python -m src.generate "$PROMPT" [--style STYLE_NAME] [--model MODEL_ALIAS] [--include TAG1] [--include TAG2] [--images /tmp/nano-banana/img1.png]
    ```
 
    Where `$PROJECT_DIR` is the root directory of the nano-banana project (where `pyproject.toml` is located).
@@ -33,12 +30,17 @@ Generate an image from a text prompt using the Gemini API.
 
 6. **Clean up**: Remove any temporary image files from `/tmp/nano-banana/`
 
-## Available Styles
+## Available Options
 
-Run `cat styles.json` in the project directory to see available styles, or use `--style` with one of: ghibli, pixel-art, photo-realistic, watercolor.
+- **Styles**: Run `cat styles.json` in the project directory. Built-in: ghibli, pixel-art, photo-realistic, watercolor.
+- **Models**: Run `cat models.json` in the project directory. Built-in: flash (default), pro, banana2.
+- **Resources**: Check `ls resources/` for available tags.
 
 ## Examples
 
 - `/generate-image "a cat astronaut on the moon"`
 - `/generate-image "a medieval castle" --style ghibli`
+- `/generate-image "a landscape" --model pro`
+- `/generate-image "portrait" --include face-kim --style watercolor`
+- `/generate-image "portrait" --model pro --include face-kim --style ghibli`
 - (with an image in chat) `/generate-image "transform this into pixel art"`
