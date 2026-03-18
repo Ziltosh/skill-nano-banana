@@ -10,6 +10,8 @@ def log_generation(
     style: str | None = None,
     model: str | None = None,
     text: str | None = None,
+    ratio: str | None = None,
+    size: str | None = None,
     error: str | None = None,
     history_file: Path | None = None,
 ) -> None:
@@ -25,6 +27,8 @@ def log_generation(
         "style": style,
         "model": model,
         "text": text,
+        "ratio": ratio,
+        "size": size,
         "output": output_path,
         "success": success,
         "error": error,
